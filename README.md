@@ -29,6 +29,10 @@ The domain remains framework-independent. The application module owns use cases 
 
 Authenticated use cases depend on `require_account_context`. It accepts only bearer JWTs signed with RS256, verifies issuer, audience, expiry, issued-at time and required identity claims against the configured Keycloak JWKS endpoint, then exposes an immutable Pydantic context containing `account_id`, `tenant_id`, deduplicated roles and deduplicated scopes. Failures return the same `401 UNAUTHENTICATED` response without revealing whether the signature, expiry or claim validation failed. JWKS network access is confined to the provider adapter and is replaced by an in-memory key resolver in tests.
 
+## Authorization policy
+
+Application use cases authorize access with `AuthorizationPolicy` and validated immutable `TenantTarget` or `OwnedTarget` values. Tenant isolation is checked before ownership; an owned resource requires both the same tenant and the same account. Roles and scopes do not implicitly bypass ownership, so any future privileged policy must be explicit and independently tested. Denials raise `AuthorizationDenied` with a stable internal reason and a generic message that does not expose resource identifiers. This increment introduces no public resource endpoint or external contract.
+
 ## Status
 
 Python service scaffold with validated configuration, operational endpoints and automated quality gates. Identity behavior will be added incrementally through versioned contracts.
