@@ -21,6 +21,10 @@ User identity, sessions, roles and authorization decisions.
 - Correlation identifiers are propagated without logging sensitive payloads.
 - Authorization and ownership are checked at the service boundary.
 
+## Authorization decisions
+
+The application layer owns the reusable tenant and ownership policy used by protected use cases. Tenant equality is a mandatory precondition for all resource access. User-owned resources additionally require the authenticated account to match the recorded owner; roles and scopes do not grant an implicit bypass. Adapters may translate typed denials into a stable external response, but they must not reveal tenant or owner identifiers.
+
 ## Non-goals
 
 This service does not absorb responsibilities owned by another CareerOS service. Cross-service workflows are coordinated through explicit contracts rather than shared databases.
