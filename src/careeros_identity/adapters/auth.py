@@ -7,7 +7,7 @@ import jwt
 from jwt import PyJWK, PyJWKClient, PyJWTError
 from pydantic import ValidationError
 
-from careeros_identity.application import AccountContext, TokenValidationError
+from careeros_identity.application.authentication import AccountContext, TokenValidationError
 
 
 class SigningKeyProvider(Protocol):

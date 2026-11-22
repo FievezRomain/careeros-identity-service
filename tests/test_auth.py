@@ -11,7 +11,7 @@ from jwt import PyJWK
 
 from careeros_identity.adapters.auth import JwtTokenVerifier
 from careeros_identity.adapters.http import Settings, create_app, require_account_context
-from careeros_identity.application import AccountContext, TokenValidationError
+from careeros_identity.application.authentication import AccountContext, TokenValidationError
 
 ACCOUNT_ID = UUID("00000000-0000-4000-8000-000000000001")
 TENANT_ID = UUID("00000000-0000-4000-8000-000000000002")

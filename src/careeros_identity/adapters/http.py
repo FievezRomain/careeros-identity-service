@@ -12,10 +12,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from starlette.middleware.base import RequestResponseEndpoint
 
 from careeros_identity.adapters.auth import JwtTokenVerifier, SigningKeyResolver
-from careeros_identity.application import (
+from careeros_identity.application.authentication import (
     AccountContext,
     TokenValidationError,
     TokenVerifier,
+)
+from careeros_identity.application.operations import (
     health_status,
     readiness_status,
 )

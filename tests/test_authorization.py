@@ -3,8 +3,8 @@ from uuid import UUID
 import pytest
 from pydantic import ValidationError
 
-from careeros_identity.application import (
-    AccountContext,
+from careeros_identity.application.authentication import AccountContext
+from careeros_identity.application.authorization import (
     AuthorizationDenial,
     AuthorizationDenied,
     AuthorizationPolicy,
