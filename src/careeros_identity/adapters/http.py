@@ -2,18 +2,27 @@
 
 import json
 import logging
-from typing import Literal
+from typing import Annotated, Literal, cast
 from uuid import uuid4
 
-from fastapi import FastAPI, Request, Response
-from pydantic import BaseModel, ConfigDict
+from fastapi import FastAPI, HTTPException, Request, Response, Security, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from starlette.middleware.base import RequestResponseEndpoint
 
-from careeros_identity.application import health_status, readiness_status
+from careeros_identity.adapters.auth import JwtTokenVerifier, SigningKeyResolver
+from careeros_identity.application import (
+    AccountContext,
+    TokenValidationError,
+    TokenVerifier,
+    health_status,
+    readiness_status,
+)
 
 CORRELATION_HEADER = "X-Correlation-ID"
 LOGGER = logging.getLogger("careeros.identity.http")
+BEARER = HTTPBearer(auto_error=False)
 
 
 class Settings(BaseSettings):
@@ -28,6 +37,9 @@ class Settings(BaseSettings):
 
     app_env: Literal["development", "test", "production"]
     log_level: Literal["debug", "info", "warning", "error"]
+    oidc_issuer: AnyHttpUrl
+    oidc_audience: str = Field(min_length=1)
+    oidc_jwks_url: AnyHttpUrl
 
 
 class HealthResponse(BaseModel):
@@ -37,6 +49,14 @@ class HealthResponse(BaseModel):
 
     status: Literal["ok", "ready"]
     service: Literal["identity-service"] = "identity-service"
+
+
+class AuthError(BaseModel):
+    """Stable denial response without token validation details."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    code: Literal["UNAUTHENTICATED"] = "UNAUTHENTICATED"
 
 
 def _correlation_id(request: Request) -> str:
@@ -50,12 +70,41 @@ def _correlation_id(request: Request) -> str:
     return str(uuid4())
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def require_account_context(
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Security(BEARER)],
+) -> AccountContext:
+    """Validate a bearer token and expose normalized identity to a use case."""
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise _unauthenticated()
+    verifier = cast(TokenVerifier, request.app.state.token_verifier)
+    try:
+        return verifier.verify(credentials.credentials)
+    except TokenValidationError:
+        raise _unauthenticated() from None
+
+
+def _unauthenticated() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=AuthError().model_dump(),
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def create_app(
+    settings: Settings | None = None, token_verifier: TokenVerifier | None = None
+) -> FastAPI:
     """Validate configuration and compose the HTTP adapter."""
     validated_settings = settings or Settings()
     LOGGER.setLevel(validated_settings.log_level.upper())
     application = FastAPI(title="CareerOS Identity Service", version="0.1.0")
     application.state.settings = validated_settings
+    application.state.token_verifier = token_verifier or JwtTokenVerifier(
+        resolver=SigningKeyResolver(str(validated_settings.oidc_jwks_url)),
+        issuer=str(validated_settings.oidc_issuer),
+        audience=validated_settings.oidc_audience,
+    )
 
     @application.middleware("http")
     async def correlation_middleware(

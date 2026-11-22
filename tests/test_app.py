@@ -12,7 +12,14 @@ from careeros_identity.adapters.http import CORRELATION_HEADER, Settings, create
 
 @contextmanager
 def client() -> Generator[TestClient]:
-    with TestClient(create_app(Settings(app_env="test", log_level="info"))) as test_client:
+    settings = Settings(
+        app_env="test",
+        log_level="info",
+        oidc_issuer="https://identity.example.invalid/realms/careeros",
+        oidc_audience="careeros-api",
+        oidc_jwks_url="https://identity.example.invalid/jwks",
+    )
+    with TestClient(create_app(settings)) as test_client:
         yield test_client
 
 
@@ -52,7 +59,15 @@ def test_structured_logs_redact_query_values(caplog: pytest.LogCaptureFixture) -
 
 def test_rejects_invalid_startup_configuration() -> None:
     with pytest.raises(ValidationError):
-        Settings.model_validate({"app_env": "staging", "log_level": "info"})
+        Settings.model_validate(
+            {
+                "app_env": "staging",
+                "log_level": "info",
+                "oidc_issuer": "https://identity.example.invalid/realms/careeros",
+                "oidc_audience": "careeros-api",
+                "oidc_jwks_url": "https://identity.example.invalid/jwks",
+            }
+        )
 
     with pytest.raises(ValidationError):
         Settings.model_validate({})
